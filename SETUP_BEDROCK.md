@@ -8,9 +8,14 @@ Before deploying, you **MUST** enable the Bedrock model in your AWS account:
 2. Navigate to **Model access** (left sidebar)
 3. Click **"Manage model access"** or **"Enable model access"**
 4. Select **"Claude 3 Haiku"** (the model we're using - it's the cheapest!)
-5. Click **"Save changes"**
+5. **Fill out the Anthropic use case details form** when prompted
+   - This is required by Anthropic before you can use their models
+   - Provide details about your use case (e.g., "AWS Gameday practice", "Development/testing")
+6. Click **"Save changes"**
 
-**Why this matters**: Without enabling the model, your Lambda will get `AccessDeniedException` errors.
+**Why this matters**: 
+- Without enabling the model, your Lambda will get `AccessDeniedException` errors
+- Without filling the use case form, you'll get `ResourceNotFoundException` with message about use case details
 
 ## Cost Protection Features Already Built-In:
 
@@ -65,6 +70,12 @@ In `template.yaml`, change `BEDROCK_MODEL_ID`:
 - `anthropic.claude-3-opus-20240229-v1:0` ← **10x more expensive!**
 
 ## Common Issues:
+
+**ResourceNotFoundException: "Model use case details have not been submitted"**
+- You need to fill out the Anthropic use case form in the Bedrock console
+- Go to Bedrock → Model access → Manage model access → Select Claude model
+- Fill out the use case details form when prompted
+- Wait 15 minutes after submission for it to take effect
 
 **AccessDeniedException**: Model not enabled in Bedrock console  
 **ValidationException**: Check model ID format  
