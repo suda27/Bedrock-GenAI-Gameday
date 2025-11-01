@@ -8,9 +8,9 @@ Since Bedrock API keys can be very long, we use **SSM Parameter Store** instead 
 
 ```bash
 aws ssm put-parameter \
-  --name "/aws-gameday/bedrock-api-key" \
+  --name "/poc/bedrock-api-key" \
   --value "YOUR_API_KEY" \
-  --type "SecureString" \
+  --type "String" \
   --region ap-south-1
 ```
 
@@ -79,30 +79,33 @@ sam sync --stack-name aws-gameday --watch
 sam sync --stack-name aws-gameday --watch
 ```
 
-**To Update API Key (No Redeploy Needed!):**
+**To Update API Key (Redeploy Required):**
 ```bash
 aws ssm put-parameter \
-  --name "/aws-gameday/bedrock-api-key" \
+  --name "/poc/bedrock-api-key" \
   --value "YOUR_NEW_API_KEY" \
-  --type "SecureString" \
+  --type "String" \
   --overwrite \
   --region ap-south-1
+
+# Redeploy to pick up the new key
+sam sync --stack-name aws-gameday
 ```
 
-Lambda will automatically pick up the new key (cached for 5 minutes).
+The API key is resolved at deployment time via CloudFormation dynamic reference, so a redeploy is needed.
 
 ## What Changed
 
 ✅ API key stored in **SSM Parameter Store** (no length limits!)  
-✅ Lambda fetches key from SSM at runtime (cached for 5 min)  
+✅ API key resolved at deployment time via CloudFormation dynamic reference  
 ✅ No CloudFormation parameters needed  
-✅ Easy to update - just update SSM parameter  
+✅ Easy to update - update SSM parameter and redeploy  
 ✅ `sam sync --watch` works perfectly  
 
 ## Notes
 
-- The API key is stored securely in SSM as a SecureString (encrypted)
-- Lambda automatically fetches it on each invocation
-- If your key expires, just update it in SSM - no redeploy needed!
+- The API key is stored in SSM Parameter Store as a String type
+- Lambda gets the key from environment variable (resolved at deployment time)
+- If your key expires, update it in SSM and redeploy the stack
 - The key is sent as `Authorization: Bearer <api-key>` header to Bedrock
 - `sam sync --watch` is perfect for Gameday - fast iterations and quick testing!

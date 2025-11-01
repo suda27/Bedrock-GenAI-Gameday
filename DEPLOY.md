@@ -16,9 +16,9 @@ Bedrock API keys can be very long (exceeding 4096 characters), so we use **AWS S
 
 ```bash
 aws ssm put-parameter \
-  --name "/aws-gameday/bedrock-api-key" \
+  --name "/poc/bedrock-api-key" \
   --value "your-bedrock-api-key-here" \
-  --type "SecureString" \
+  --type "String" \
   --region ap-south-1
 ```
 
@@ -63,14 +63,18 @@ If you need to update the API key (e.g., when short-term key expires), **just up
 
 ```bash
 aws ssm put-parameter \
-  --name "/aws-gameday/bedrock-api-key" \
+  --name "/poc/bedrock-api-key" \
   --value "your-new-api-key" \
-  --type "SecureString" \
+  --type "String" \
   --overwrite \
   --region ap-south-1
 ```
 
-The Lambda will automatically pick up the new key on the next invocation (key is cached for 5 minutes for performance).
+**Note:** After updating the SSM parameter, you need to redeploy the stack for the Lambda to get the new value (since it's resolved at deployment time via CloudFormation dynamic reference):
+
+```bash
+sam sync --stack-name aws-gameday
+```
 
 ## Security Notes
 
@@ -102,7 +106,7 @@ curl -X POST https://YOUR-API-ID.execute-api.ap-south-1.amazonaws.com/dev/hello 
 ## Troubleshooting
 
 **Error: "Failed to fetch Bedrock API Key from SSM"**
-- Verify the SSM parameter exists: `aws ssm get-parameter --name "/aws-gameday/bedrock-api-key"`
+- Verify the SSM parameter exists: `aws ssm get-parameter --name "/poc/bedrock-api-key"`
 - Check Lambda has SSM read permissions (already included in template)
 - Ensure you're in the correct AWS region
 
