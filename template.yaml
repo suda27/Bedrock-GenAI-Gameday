@@ -25,6 +25,16 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: INFO
+          # Bedrock Model Configuration - COST CONTROL
+          # Using Claude Haiku (cheapest) for practice/testing
+          # Change to anthropic.claude-3-opus-20240229-v1:0 if needed (expensive!)
+          BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
+          MAX_INPUT_LENGTH: "1000"
+          MAX_TOKENS: "256"
+          APP_REGION: !Ref AWS::Region
+          # API key resolved from SSM Parameter Store using CloudFormation dynamic reference
+          # Note: Use 'ssm-secure' for SecureString, 'ssm' for String type
+          BEDROCK_API_KEY: !Sub "{{resolve:ssm:/poc/bedrock-api-key}}"
       Events:
         HelloWorldApi:
           Type: Api
