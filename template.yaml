@@ -4,7 +4,7 @@ Description: >
   Bedrock GenAI Gameday Lambda Function
   
   Sample SAM Template for a Lambda function with API Gateway trigger
-  and full permissions to DynamoDB, S3, Step Functions, Bedrock, OpenSearch, and CloudWatch
+  and full permissions to DynamoDB, S3, Step Functions, Bedrock, and CloudWatch
 
 Globals:
   Function:
@@ -36,6 +36,7 @@ Resources:
           # API key resolved from SSM Parameter Store using CloudFormation dynamic reference
           # Note: Use 'ssm-secure' for SecureString, 'ssm' for String type
           BEDROCK_API_KEY: !Sub "{{resolve:ssm:/poc/bedrock-api-key}}"
+          DYNAMODB_TABLE_NAME: !Ref QueryCacheTable
       Events:
         HelloWorldApi:
           Type: Api
@@ -44,6 +45,24 @@ Resources:
             Method: post
             RestApiId: !Ref HelloWorldApi
       Role: !GetAtt LambdaExecutionRole.Arn
+
+  # DynamoDB Table for Query Cache
+  QueryCacheTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: travelbuddy-query-cache
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: queryHash
+          AttributeType: S
+      KeySchema:
+        - AttributeName: queryHash
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
 
   # API Gateway
   HelloWorldApi:
@@ -69,14 +88,17 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: DynamoDBFullAccess
+        - PolicyName: DynamoDBAccess
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:*
-                Resource: "*"
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                Resource: !GetAtt QueryCacheTable.Arn
         - PolicyName: S3FullAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -101,14 +123,6 @@ Resources:
                 Action:
                   - bedrock:*
                 Resource: "*"
-        - PolicyName: OpenSearchFullAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - es:*
-                Resource: "*"
         - PolicyName: CloudWatchFullAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -131,4 +145,8 @@ Outputs:
   HelloWorldFunctionIamRole:
     Description: "Implicit IAM Role created for Hello World function"
     Value: !GetAtt LambdaExecutionRole.Arn
+  
+  QueryCacheTable:
+    Description: "DynamoDB Table for Query Cache"
+    Value: !Ref QueryCacheTable
 
