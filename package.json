@@ -1,0 +1,21 @@
+{
+  "name": "bedrock-genai-gameday-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function with API Gateway trigger",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "aws",
+    "lambda",
+    "apigateway"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.x"
+  }
+}
+
