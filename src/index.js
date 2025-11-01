@@ -25,11 +25,52 @@ const DYNAMODB_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'travelbuddy-quer
 // Cache TTL: 24 hours (86400 seconds)
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
 
+// Common stop words to remove during normalization for better cache hits
+const STOP_WORDS = new Set([
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
+    'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
+    'to', 'was', 'were', 'will', 'with', 'what', 'which', 'who',
+    'where', 'when', 'how', 'can', 'could', 'should', 'would'
+]);
+
 /**
- * Generate SHA-256 hash of query text for cache key
+ * Normalize query text for better semantic cache matching
+ * Handles variations like:
+ * - "What are the travel packages available from Bengaluru to Bangkok?"
+ * - "What are the travel packages from Bengaluru to Bangkok?"
+ * Both will normalize to similar strings (removing stop words, normalizing whitespace)
+ */
+function normalizeQuery(query) {
+    if (!query) return '';
+    
+    // Convert to lowercase
+    let normalized = query.toLowerCase();
+    
+    // Remove punctuation (keep spaces and alphanumeric)
+    normalized = normalized.replace(/[^\w\s]/g, ' ');
+    
+    // Normalize whitespace (multiple spaces to single space)
+    normalized = normalized.replace(/\s+/g, ' ').trim();
+    
+    // Split into words and remove stop words
+    const words = normalized.split(' ').filter(word => {
+        // Remove empty strings and stop words
+        return word.length > 0 && !STOP_WORDS.has(word);
+    });
+    
+    // Join words back with single space
+    normalized = words.join(' ').trim();
+    
+    return normalized;
+}
+
+/**
+ * Generate SHA-256 hash of normalized query text for cache key
+ * Normalization helps catch semantically similar queries
  */
 function generateQueryHash(query) {
-    return crypto.createHash('sha256').update(query.trim().toLowerCase()).digest('hex');
+    const normalized = normalizeQuery(query);
+    return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
 /**
@@ -200,9 +241,12 @@ exports.handler = async (event) => {
             };
         }
         
-        // Step 1: Generate hash of query for cache lookup
+        // Step 1: Generate hash of normalized query for cache lookup
+        const normalizedQuery = normalizeQuery(input);
         const queryHash = generateQueryHash(input);
-        console.log('Query hash:', queryHash, 'for query:', input);
+        console.log('Original query:', input);
+        console.log('Normalized query:', normalizedQuery);
+        console.log('Query hash:', queryHash);
         
         // Step 2: Check DynamoDB cache
         const cacheResult = await getCachedResponse(queryHash);
