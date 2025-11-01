@@ -75,8 +75,16 @@ export class ChatComponent implements OnInit, AfterViewChecked {
     // Show loading state
     this.isLoading = true;
 
-    // Send to API
-    this.apiService.sendMessage(userMsg).subscribe({
+    // Build conversation history for context (last 10 messages to limit token usage)
+    const conversationHistory = this.messages
+      .slice(-10) // Last 10 messages
+      .map(msg => ({
+        role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+        content: msg.text
+      }));
+
+    // Send to API with conversation history
+    this.apiService.sendMessage(userMsg, conversationHistory).subscribe({
       next: (response) => {
         this.isLoading = false;
         

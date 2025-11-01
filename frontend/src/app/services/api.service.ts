@@ -15,6 +15,16 @@ export interface ChatMessage {
   error?: string;
 }
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatRequest {
+  input: string;
+  conversationHistory?: ConversationMessage[]; // Optional: send conversation history for context
+}
+
 export interface ApiResponse {
   message: string;
   bedrockResponse: string;
@@ -53,14 +63,19 @@ export class ApiService {
   }
 
   /**
-   * Send a message to the TravelBuddy API
+   * Send a message to the TravelBuddy API with conversation history
    */
-  sendMessage(input: string): Observable<ApiResponse> {
+  sendMessage(input: string, conversationHistory?: ConversationMessage[]): Observable<ApiResponse> {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json'
     });
 
-    return this.http.post<ApiResponse>(this.apiUrl, { input }, { headers });
+    const requestBody: ChatRequest = {
+      input,
+      conversationHistory: conversationHistory || []
+    };
+
+    return this.http.post<ApiResponse>(this.apiUrl, requestBody, { headers });
   }
 }
 

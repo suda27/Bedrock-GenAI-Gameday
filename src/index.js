@@ -190,21 +190,108 @@ async function getTravelDocument() {
 }
 
 /**
- * Invoke Bedrock LLM to generate response with travel document context
+ * Invoke Bedrock LLM to generate response with travel document context and conversation history
  */
-async function invokeBedrockLLM(input) {
+async function invokeBedrockLLM(input, conversationHistory = []) {
     // Get travel document (cached or from S3)
     const travelDoc = await getTravelDocument();
     
-    // Build prompt with travel document context
+    // Build system prompt with travel document context
     let systemPrompt = 'You are a helpful travel assistant for TravelBuddy.';
-    let userContent = input;
     
     if (travelDoc) {
         systemPrompt += ' Use the following travel package information to answer the user\'s question accurately. If the information doesn\'t contain the answer, say so politely.';
-        userContent = `Travel Package Information:\n\n${travelDoc}\n\nUser Question: ${input}`;
+        systemPrompt += `\n\nTravel Package Information:\n\n${travelDoc}`;
+    }
+    
+    // Build messages array with conversation history + current input
+    // Claude 3 requires: messages must start with 'user' and alternate user/assistant
+    const messages = [];
+    
+    // Add conversation history (limit to last 10 exchanges to control token usage)
+    const recentHistory = conversationHistory.slice(-20); // Last 20 messages (10 exchanges)
+    
+    // Filter and validate history messages
+    const validHistory = [];
+    for (const msg of recentHistory) {
+        if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
+            validHistory.push({
+                role: msg.role,
+                content: msg.content
+            });
+        }
+    }
+    
+    // Build messages array ensuring proper alternation
+    // Find first user message in history
+    let startIndex = 0;
+    for (let i = 0; i < validHistory.length; i++) {
+        if (validHistory[i].role === 'user') {
+            startIndex = i;
+            break;
+        }
+    }
+    
+    // Add valid history starting from first user message
+    const historyMessages = validHistory.slice(startIndex);
+    
+    // Clean history to ensure proper alternation (remove consecutive same roles)
+    let lastRole = null;
+    for (const msg of historyMessages) {
+        if (lastRole === null) {
+            // First message must be user
+            if (msg.role === 'user') {
+                messages.push(msg);
+                lastRole = 'user';
+            }
+        } else {
+            // Ensure alternation: if last was user, next must be assistant and vice versa
+            if (msg.role !== lastRole) {
+                messages.push(msg);
+                lastRole = msg.role;
+            } else {
+                // Skip consecutive same roles (merge or skip based on context)
+                // If we have consecutive user messages, keep only the last one
+                // If we have consecutive assistant messages, keep only the last one
+                if (messages.length > 0) {
+                    messages[messages.length - 1] = msg; // Replace with latest
+                }
+            }
+        }
+    }
+    
+    // Always end with current user message
+    // If last message was user, merge current input with it
+    // If last message was assistant (or empty), add current input as new message
+    if (messages.length === 0) {
+        // No history, start with current input
+        messages.push({
+            role: 'user',
+            content: input
+        });
+    } else if (lastRole === 'user') {
+        // Last message was user, merge with current input
+        const lastMsg = messages[messages.length - 1];
+        messages[messages.length - 1] = {
+            role: 'user',
+            content: lastMsg.content + '\n\n' + input
+        };
     } else {
-        userContent = `Respond to the following in a brief, friendly manner: ${input}`;
+        // Last message was assistant, add current input
+        messages.push({
+            role: 'user',
+            content: input
+        });
+    }
+    
+    // Final validation: ensure messages array is valid
+    if (messages.length === 0 || messages[0].role !== 'user') {
+        console.warn('Messages array validation failed, using current input only');
+        messages.length = 0; // Clear array
+        messages.push({
+            role: 'user',
+            content: input
+        });
     }
     
     // Prepare Bedrock request with cost controls
@@ -217,12 +304,7 @@ async function invokeBedrockLLM(input) {
             anthropic_version: 'bedrock-2023-05-31',
             max_tokens: MAX_TOKENS,
             system: systemPrompt,
-            messages: [
-                {
-                    role: 'user',
-                    content: userContent
-                }
-            ]
+            messages: messages
         })
     };
     
@@ -282,14 +364,17 @@ exports.handler = async (event) => {
         // Parse the request body
         let body = {};
         let input = '';
+        let conversationHistory = [];
         
         if (event.body) {
             try {
                 body = JSON.parse(event.body);
                 input = body.input || '';
+                conversationHistory = body.conversationHistory || [];
             } catch (parseError) {
                 // If JSON parsing fails, try to use body as string
                 input = event.body || '';
+                conversationHistory = [];
             }
         }
         
@@ -346,9 +431,12 @@ exports.handler = async (event) => {
             };
         }
         
-        // Step 3: Cache MISS - Invoke Bedrock LLM
-        console.log('Cache miss - calling Bedrock LLM');
-        const bedrockResult = await invokeBedrockLLM(input);
+        // Step 3: Cache MISS - Invoke Bedrock LLM with conversation history
+        console.log('Cache miss - calling Bedrock LLM', { 
+            hasHistory: conversationHistory.length > 0,
+            historyLength: conversationHistory.length 
+        });
+        const bedrockResult = await invokeBedrockLLM(input, conversationHistory);
 
         // Log token usage for cost tracking
         console.log('Bedrock usage:', {
