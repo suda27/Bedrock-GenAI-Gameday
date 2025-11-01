@@ -1,0 +1,165 @@
+<mxfile host="app.diagrams.net" modified="2025-11-01T10:00:00.000Z" agent="draw.io" version="21.0.0" etag="architecture" type="device">
+  <diagram name="TravelBuddy Architecture" id="travelbuddy-arch">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" value="TravelBuddy AI Travel Assistant - AWS Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="20" width="530" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- User/Frontend -->
+        <mxCell id="user" value="User / Frontend&#xa;(Web/Mobile)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="140" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- API Gateway -->
+        <mxCell id="apigw" value="API Gateway&#xa;REST API&#xa;POST /hello" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="120" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Lambda -->
+        <mxCell id="lambda" value="AWS Lambda&#xa;Node.js 20.x&#xa;256 MB, 30s timeout&#xa;&#xa;Handler Logic:&#xa;• Query Normalization&#xa;• Cache Check&#xa;• S3 Read&#xa;• Bedrock Invocation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="580" y="80" width="200" height="160" as="geometry" />
+        </mxCell>
+        
+        <!-- DynamoDB -->
+        <mxCell id="dynamodb" value="DynamoDB&#xa;Query Cache Table&#xa;travelbuddy-query-cache&#xa;&#xa;PAY_PER_REQUEST&#xa;TTL: 24 hours" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="280" width="140" height="180" as="geometry" />
+        </mxCell>
+        
+        <!-- S3 -->
+        <mxCell id="s3" value="Amazon S3&#xa;gameday-bedrock&#xa;&#xa;travel_details.md&#xa;Travel Packages Data" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="580" y="280" width="160" height="180" as="geometry" />
+        </mxCell>
+        
+        <!-- Bedrock -->
+        <mxCell id="bedrock" value="Amazon Bedrock&#xa;Claude 3 Haiku&#xa;LLM Service&#xa;&#xa;Cost Optimized:&#xa;Max 256 tokens output" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="840" y="280" width="180" height="140" as="geometry" />
+        </mxCell>
+        
+        <!-- SSM -->
+        <mxCell id="ssm" value="SSM Parameter Store&#xa;/poc/bedrock-api-key&#xa;&#xa;API Key Storage" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="840" y="140" width="180" height="100" as="geometry" />
+        </mxCell>
+        
+        <!-- CloudWatch -->
+        <mxCell id="cloudwatch" value="CloudWatch&#xa;Logs &amp; Metrics&#xa;&#xa;Monitoring &amp; Debugging" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="520" width="160" height="100" as="geometry" />
+        </mxCell>
+        
+        <!-- Flow: User to API Gateway -->
+        <mxCell id="flow1" value="HTTP POST&#xa;{&quot;input&quot;: &quot;...&quot;}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#006EAF" edge="1" parent="1" source="user" target="apigw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Flow: API Gateway to Lambda -->
+        <mxCell id="flow2" value="Invoke" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#006EAF" edge="1" parent="1" source="apigw" target="lambda">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Flow: Lambda to DynamoDB (Check Cache) -->
+        <mxCell id="flow3" value="1. Check Cache&#xa;GetItem(queryHash)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#9673a6;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="lambda" target="dynamodb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="240" />
+              <mxPoint x="390" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Flow: DynamoDB to Lambda (Cache Response) -->
+        <mxCell id="flow4" value="Cache HIT?&#xa;Return or Continue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#9673a6;dashed=1;dashPattern=8 8" edge="1" parent="1" source="dynamodb" target="lambda">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="240" />
+              <mxPoint x="680" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Flow: Lambda to S3 -->
+        <mxCell id="flow5" value="2. Read Travel Doc&#xa;GetObject()&#xa;(cached in memory)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#82b366;entryX=0.25;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="lambda" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Flow: S3 to Lambda -->
+        <mxCell id="flow6" value="Document Content" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#82b366;dashed=1;dashPattern=8 8" edge="1" parent="1" source="s3" target="lambda">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Flow: Lambda to SSM (Get API Key) -->
+        <mxCell id="flow7" value="Get API Key&#xa;(via env var&#xa;from deployment)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#666666;dashed=1;dashPattern=8 8;entryX=0;entryY=0.5;entryDx=0;entryDy=0" edge="1" parent="1" source="lambda" target="ssm">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Flow: Lambda to Bedrock -->
+        <mxCell id="flow8" value="3. Invoke LLM&#xa;Claude 3 Haiku&#xa;with context" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#d79b00;entryX=0;entryY=0.5;entryDx=0;entryDy=0" edge="1" parent="1" source="lambda" target="bedrock">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="160" />
+              <mxPoint x="780" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Flow: Bedrock to Lambda -->
+        <mxCell id="flow9" value="LLM Response" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#d79b00;dashed=1;dashPattern=8 8" edge="1" parent="1" source="bedrock" target="lambda">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Flow: Lambda to DynamoDB (Store Cache) -->
+        <mxCell id="flow10" value="4. Store in Cache&#xa;PutItem(response)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#9673a6;entryX=0.75;entryY=1;entryDx=0;entryDy=0" edge="1" parent="1" source="lambda" target="dynamodb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="280" />
+              <mxPoint x="460" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Flow: Lambda to CloudWatch -->
+        <mxCell id="flow11" value="Logs &amp; Metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#82b366;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="lambda" target="cloudwatch">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="280" />
+              <mxPoint x="400" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Flow: Lambda to API Gateway (Response) -->
+        <mxCell id="flow12" value="Response" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#006EAF;dashed=1;dashPattern=8 8" edge="1" parent="1" source="lambda" target="apigw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Flow: API Gateway to User (Response) -->
+        <mxCell id="flow13" value="JSON Response" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#006EAF;dashed=1;dashPattern=8 8" edge="1" parent="1" source="apigw" target="user">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Execution Flow Box -->
+        <mxCell id="flowbox" value="Execution Flow:&#xa;1. Normalize Query → Check DynamoDB Cache&#xa;2. If MISS: Read S3 Document (cached)&#xa;3. Invoke Bedrock with document context&#xa;4. Store response in DynamoDB cache&#xa;5. Return to user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;verticalAlign=top;spacingLeft=10" vertex="1" parent="1">
+          <mxGeometry x="80" y="640" width="940" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Cost Optimization Note -->
+        <mxCell id="costnote" value="Cost Optimization Features:&#xa;• Query normalization for better cache hits&#xa;• DynamoDB caching reduces Bedrock calls by 30-70%&#xa;• S3 in-memory caching (1 hour TTL)&#xa;• Claude 3 Haiku (cheapest model)&#xa;• Token limits: 256 output, 1000 char input" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;spacingLeft=10" vertex="1" parent="1">
+          <mxGeometry x="80" y="280" width="200" height="120" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+

@@ -13,6 +13,9 @@ An AI-powered travel assistant built on AWS that helps users answer queries abou
 
 ## 🏗️ Architecture
 
+![TravelBuddy Architecture](./assets/architecture.png)
+
+**High-Level Flow:**
 ```
 ┌─────────────────┐
 │   API Gateway   │  POST /hello
