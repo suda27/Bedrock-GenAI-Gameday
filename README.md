@@ -177,6 +177,10 @@ const response = await axios.post(
 console.log(response.data);
 ```
 
+### Guardrail Testing
+
+To test Bedrock's content moderation guardrails, see [GUARDRAIL_TEST_PAYLOADS.md](./GUARDRAIL_TEST_PAYLOADS.md) for test cases that verify safety features are working.
+
 ## 📊 Request/Response Format
 
 ### Request
