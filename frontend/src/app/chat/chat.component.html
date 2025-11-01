@@ -1,0 +1,98 @@
+<div class="chat-container">
+  <!-- Chat Header -->
+  <div class="chat-header">
+    <div class="header-info">
+      <h2>Chat Assistant</h2>
+      <span class="status-indicator" [class.active]="!isLoading">
+        <span class="status-dot"></span>
+        {{ isLoading ? 'Thinking...' : 'Online' }}
+      </span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" (click)="toggleApiConfig()" title="Configure API">
+        ⚙️
+      </button>
+      <button class="btn-icon" (click)="clearChat()" title="Clear Chat">
+        🗑️
+      </button>
+    </div>
+  </div>
+
+  <!-- API Configuration Panel -->
+  <div class="api-config" *ngIf="showApiConfig">
+    <h3>API Configuration</h3>
+    <input 
+      type="text" 
+      [(ngModel)]="apiUrl" 
+      placeholder="API Gateway URL"
+      class="api-input"
+    />
+    <button (click)="updateApiUrl()" class="btn-primary">Update URL</button>
+    <button (click)="toggleApiConfig()" class="btn-secondary">Close</button>
+  </div>
+
+  <!-- Messages Container -->
+  <div class="messages-container" #chatContainer>
+    <div 
+      *ngFor="let message of messages" 
+      class="message"
+      [class.user-message]="message.sender === 'user'"
+      [class.assistant-message]="message.sender === 'assistant'"
+      [class.error-message]="message.error"
+    >
+      <div class="message-content">
+        <div class="message-text" [innerHTML]="formatMessage(message.text)"></div>
+        <div class="message-meta">
+          <span class="timestamp">{{ formatTimestamp(message.timestamp) }}</span>
+          <span *ngIf="message.cached" class="cache-badge">💾 Cached</span>
+          <span 
+            *ngIf="message.usage" 
+            class="usage-info"
+            title="Token usage for this response"
+          >
+            📊 {{ message.usage.inputTokens + message.usage.outputTokens }} tokens
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div *ngIf="isLoading" class="message assistant-message">
+      <div class="message-content">
+        <div class="loading-indicator">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input Area -->
+  <div class="input-container">
+    <div class="input-wrapper">
+      <textarea
+        #messageInput
+        [(ngModel)]="userMessage"
+        (keydown)="onEnterKey($event)"
+        placeholder="Ask me about travel packages..."
+        class="message-input"
+        rows="1"
+        [disabled]="isLoading"
+      ></textarea>
+      <button 
+        (click)="sendMessage()" 
+        class="send-button"
+        [disabled]="!userMessage.trim() || isLoading"
+        title="Send message (Enter)"
+      >
+        <span *ngIf="!isLoading">📤</span>
+        <span *ngIf="isLoading">⏳</span>
+      </button>
+    </div>
+    <div class="input-hint">
+      Press Enter to send, Shift+Enter for new line
+    </div>
+  </div>
+</div>
+
