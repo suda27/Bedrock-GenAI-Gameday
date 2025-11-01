@@ -84,8 +84,12 @@ function generateQueryHash(query) {
 
 /**
  * Generate suggested questions based on travel document and conversation context
+ * Includes retry logic with exponential backoff for throttling errors
  */
-async function generateSuggestions(conversationHistory = []) {
+async function generateSuggestions(conversationHistory = [], retryCount = 0) {
+    const maxRetries = 2;
+    const baseDelay = 1000; // 1 second base delay
+    
     try {
         // Get travel document
         const travelDoc = await getTravelDocument();
@@ -199,10 +203,20 @@ async function generateSuggestions(conversationHistory = []) {
         // Limit to 4-5 suggestions
         return suggestions.slice(0, 5);
     } catch (error) {
-        console.error('Error generating suggestions:', error);
-        // Return default suggestions on error
+        // Handle throttling with retry logic
+        if (error.name === 'ThrottlingException' && retryCount < maxRetries) {
+            const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff
+            console.warn(`ThrottlingException for suggestions, retrying after ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return generateSuggestions(conversationHistory, retryCount + 1);
+        }
+        
+        // For other errors or max retries reached, return default suggestions
+        console.error('Error generating suggestions:', error.name || error.message);
+        
+        // Return default suggestions based on context
         return conversationHistory.length > 0
-            ? ['Tell me more', 'What else can you help with?']
+            ? ['Tell me more', 'What else can you help with?', 'Show me other packages']
             : ['What packages are available?', 'Show me travel options', 'Tell me about pricing'];
     }
 }
@@ -588,11 +602,23 @@ exports.handler = async (event) => {
             console.log('Returning cached response - Bedrock call skipped');
             
             // Generate follow-up suggestions even for cached responses
+            // Use fire-and-forget to avoid blocking the response
+            let suggestions = [];
             const updatedHistory = conversationHistory.concat([
                 { role: 'user', content: input },
                 { role: 'assistant', content: cacheResult.response }
             ]);
-            const suggestions = await generateSuggestions(updatedHistory);
+            
+            // Generate suggestions asynchronously with timeout
+            try {
+                suggestions = await Promise.race([
+                    generateSuggestions(updatedHistory),
+                    new Promise((resolve) => setTimeout(() => resolve(['Tell me more', 'What else?']), 3000)) // 3s timeout
+                ]);
+            } catch (error) {
+                console.error('Error generating suggestions for cached response (non-blocking):', error);
+                suggestions = ['Tell me more', 'What else can you help with?'];
+            }
             
             return {
                 statusCode: 200,
@@ -646,11 +672,23 @@ exports.handler = async (event) => {
         );
 
         // Step 5: Generate follow-up suggestions based on conversation context
+        // Use fire-and-forget to avoid blocking the response if suggestions fail
+        let suggestions = [];
         const updatedHistory = conversationHistory.concat([
             { role: 'user', content: input },
             { role: 'assistant', content: bedrockResult.output }
         ]);
-        const suggestions = await generateSuggestions(updatedHistory);
+        
+        // Generate suggestions asynchronously - don't block on errors
+        try {
+            suggestions = await Promise.race([
+                generateSuggestions(updatedHistory),
+                new Promise((resolve) => setTimeout(() => resolve(['Tell me more', 'What else?']), 3000)) // 3s timeout
+            ]);
+        } catch (error) {
+            console.error('Error generating suggestions (non-blocking):', error);
+            suggestions = ['Tell me more', 'What else can you help with?'];
+        }
 
         // Step 6: Return response with suggestions
         return {
