@@ -27,6 +27,9 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   isLoading: boolean = false;
   apiUrl: string = '';
   showApiConfig: boolean = false;
+  suggestions: string[] = [];
+  isLoadingSuggestions: boolean = false;
+  suggestionsCollapsed: boolean = false;
 
   constructor(private apiService: ApiService) {
     // Load API URL from environment or use default
@@ -36,6 +39,9 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   ngOnInit(): void {
     // Add welcome message
     this.addWelcomeMessage();
+    
+    // Load initial suggestions
+    this.loadSuggestions();
     
     // Focus on input
     setTimeout(() => {
@@ -96,6 +102,11 @@ export class ChatComponent implements OnInit, AfterViewChecked {
           cached: response.cached,
           usage: response.usage
         });
+        
+        // Update suggestions with follow-up questions
+        if (response.suggestions && response.suggestions.length > 0) {
+          this.suggestions = response.suggestions;
+        }
       },
       error: (error) => {
         this.isLoading = false;
@@ -141,6 +152,42 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   clearChat(): void {
     this.messages = [];
     this.addWelcomeMessage();
+    this.loadSuggestions(); // Reload initial suggestions
+  }
+
+  loadSuggestions(): void {
+    this.isLoadingSuggestions = true;
+    this.apiService.getSuggestions().subscribe({
+      next: (response) => {
+        this.suggestions = response.suggestions || [];
+        this.isLoadingSuggestions = false;
+      },
+      error: (error) => {
+        console.error('Error loading suggestions:', error);
+        // Fallback suggestions
+        this.suggestions = [
+          'What packages are available?',
+          'Show me travel options',
+          'Tell me about pricing'
+        ];
+        this.isLoadingSuggestions = false;
+      }
+    });
+  }
+
+  selectSuggestion(suggestion: string): void {
+    this.userMessage = suggestion;
+    // Focus input and send message
+    setTimeout(() => {
+      if (this.messageInput) {
+        this.messageInput.nativeElement.focus();
+      }
+      this.sendMessage();
+    }, 100);
+  }
+
+  toggleSuggestions(): void {
+    this.suggestionsCollapsed = !this.suggestionsCollapsed;
   }
 
   formatMessage(text: string): string {

@@ -83,6 +83,131 @@ function generateQueryHash(query) {
 }
 
 /**
+ * Generate suggested questions based on travel document and conversation context
+ */
+async function generateSuggestions(conversationHistory = []) {
+    try {
+        // Get travel document
+        const travelDoc = await getTravelDocument();
+        
+        // Build context for suggestions
+        let contextPrompt = '';
+        if (conversationHistory.length > 0) {
+            // Extract last exchange for context
+            const lastExchange = conversationHistory.slice(-2);
+            contextPrompt = `Based on the recent conversation:\n`;
+            lastExchange.forEach(msg => {
+                contextPrompt += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
+            });
+            contextPrompt += '\nGenerate 3-4 relevant follow-up questions the user might want to ask about travel packages.';
+        } else {
+            // Initial suggestions - based on travel document
+            contextPrompt = `Based on the following travel package information, generate 4-5 interesting questions a user might ask to get started. Make them diverse and cover different aspects like pricing, destinations, package details, etc.`;
+        }
+        
+        const systemPrompt = `You are a helpful travel assistant for TravelBuddy. ${travelDoc ? 'Here is the travel package information:\n\n' + travelDoc + '\n\n' : ''}Generate suggested questions that are:\n- Short and conversational (10-15 words max)\n- Relevant to travel packages\n- Easy to understand\n- Specific enough to be useful\n\nReturn ONLY a JSON array of question strings, no other text. Example: ["What packages are available to Thailand?", "Show me Singapore travel options", "What's the cost for a 5-night package?"]`;
+        
+        const userContent = contextPrompt;
+        
+        // Prepare Bedrock request for suggestions
+        const bedrockRequest = {
+            modelId: MODEL_ID,
+            contentType: 'application/json',
+            accept: 'application/json',
+            body: JSON.stringify({
+                anthropic_version: 'bedrock-2023-05-31',
+                max_tokens: 200, // Shorter for suggestions
+                system: systemPrompt,
+                messages: [
+                    {
+                        role: 'user',
+                        content: userContent
+                    }
+                ]
+            })
+        };
+        
+        const command = new InvokeModelCommand(bedrockRequest);
+        
+        // Add API key authentication
+        command.middlewareStack.add(
+            (next) => async (args) => {
+                if (args.request?.headers) {
+                    const headerKeys = Object.keys(args.request.headers);
+                    for (const key of headerKeys) {
+                        if (key.toLowerCase() === 'authorization') {
+                            delete args.request.headers[key];
+                        }
+                    }
+                    args.request.headers['authorization'] = `Bearer ${BEDROCK_API_KEY}`;
+                }
+                return next(args);
+            },
+            {
+                step: 'finalizeRequest',
+                priority: 999,
+                name: 'bedrockApiKeyAuthOverride'
+            }
+        );
+        
+        const response = await bedrockClient.send(command);
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        const suggestionsText = responseBody.content[0].text.trim();
+        
+        // Parse JSON array from response
+        // Try to extract JSON array from the response (might have markdown code blocks)
+        let suggestions = [];
+        try {
+            // Remove markdown code blocks if present
+            const jsonMatch = suggestionsText.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                suggestions = JSON.parse(jsonMatch[0]);
+            } else {
+                // Fallback: split by newlines and extract questions
+                const lines = suggestionsText.split('\n').filter(line => line.trim());
+                suggestions = lines
+                    .map(line => line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*]\s*/, '').trim())
+                    .filter(line => line.length > 0 && line.length < 100)
+                    .slice(0, 5); // Limit to 5 suggestions
+            }
+        } catch (parseError) {
+            console.error('Error parsing suggestions JSON:', parseError);
+            // Fallback: return default suggestions
+            if (conversationHistory.length > 0) {
+                suggestions = [
+                    'Tell me more about this package',
+                    'What are the highlights?',
+                    'What is the total cost?'
+                ];
+            } else {
+                suggestions = [
+                    'What packages are available to Thailand?',
+                    'Show me Singapore travel packages',
+                    'What are the best destinations?',
+                    'Tell me about package pricing'
+                ];
+            }
+        }
+        
+        // Ensure we have valid suggestions array
+        if (!Array.isArray(suggestions) || suggestions.length === 0) {
+            suggestions = conversationHistory.length > 0 
+                ? ['Tell me more', 'What else can you help with?']
+                : ['What packages are available?', 'Show me travel options'];
+        }
+        
+        // Limit to 4-5 suggestions
+        return suggestions.slice(0, 5);
+    } catch (error) {
+        console.error('Error generating suggestions:', error);
+        // Return default suggestions on error
+        return conversationHistory.length > 0
+            ? ['Tell me more', 'What else can you help with?']
+            : ['What packages are available?', 'Show me travel options', 'Tell me about pricing'];
+    }
+}
+
+/**
  * Check DynamoDB cache for existing response
  */
 async function getCachedResponse(queryHash) {
@@ -345,6 +470,60 @@ async function invokeBedrockLLM(input, conversationHistory = []) {
 exports.handler = async (event) => {
     console.log('Event:', JSON.stringify(event, null, 2));
     
+    // Handle OPTIONS request for CORS preflight
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+            },
+            body: ''
+        };
+    }
+    
+    // Handle GET request for initial suggestions (when chat opens)
+    // Check if this is a GET request via API Gateway
+    const isGetRequest = event.httpMethod === 'GET' || 
+                         event.requestContext?.http?.method === 'GET' ||
+                         (event.requestContext && !event.body && event.path === '/suggestions');
+    
+    if (isGetRequest || event.path === '/suggestions' || (event.pathParameters && event.pathParameters.proxy === 'suggestions')) {
+        try {
+            const suggestions = await generateSuggestions([]);
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+                },
+                body: JSON.stringify({
+                    suggestions: suggestions,
+                    timestamp: new Date().toISOString()
+                })
+            };
+        } catch (error) {
+            console.error('Error generating initial suggestions:', error);
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({
+                    suggestions: [
+                        'What packages are available?',
+                        'Show me travel options',
+                        'Tell me about pricing'
+                    ]
+                })
+            };
+        }
+    }
+    
     // Validate API key is present (resolved from SSM at deployment time)
     if (!BEDROCK_API_KEY) {
         return {
@@ -407,6 +586,14 @@ exports.handler = async (event) => {
         if (cacheResult.cached) {
             // Cache HIT - return cached response (no Bedrock call = cost savings!)
             console.log('Returning cached response - Bedrock call skipped');
+            
+            // Generate follow-up suggestions even for cached responses
+            const updatedHistory = conversationHistory.concat([
+                { role: 'user', content: input },
+                { role: 'assistant', content: cacheResult.response }
+            ]);
+            const suggestions = await generateSuggestions(updatedHistory);
+            
             return {
                 statusCode: 200,
                 headers: {
@@ -419,6 +606,7 @@ exports.handler = async (event) => {
                     message: input,
                     bedrockResponse: cacheResult.response,
                     cached: true,
+                    suggestions: suggestions,
                     usage: cacheResult.usage || {
                         inputTokens: 0,
                         outputTokens: 0,
@@ -457,7 +645,14 @@ exports.handler = async (event) => {
             }
         );
 
-        // Step 5: Return response
+        // Step 5: Generate follow-up suggestions based on conversation context
+        const updatedHistory = conversationHistory.concat([
+            { role: 'user', content: input },
+            { role: 'assistant', content: bedrockResult.output }
+        ]);
+        const suggestions = await generateSuggestions(updatedHistory);
+
+        // Step 6: Return response with suggestions
         return {
             statusCode: 200,
             headers: {
@@ -470,6 +665,7 @@ exports.handler = async (event) => {
                 message: input,
                 bedrockResponse: bedrockResult.output,
                 cached: false,
+                suggestions: suggestions,
                 usage: {
                     inputTokens: bedrockResult.usage.input_tokens || 0,
                     outputTokens: bedrockResult.usage.output_tokens || 0,

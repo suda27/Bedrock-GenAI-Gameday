@@ -29,6 +29,7 @@ export interface ApiResponse {
   message: string;
   bedrockResponse: string;
   cached: boolean;
+  suggestions?: string[]; // Suggested follow-up questions
   usage: {
     inputTokens: number;
     outputTokens: number;
@@ -36,6 +37,11 @@ export interface ApiResponse {
   };
   timestamp: string;
   requestId: string;
+}
+
+export interface SuggestionsResponse {
+  suggestions: string[];
+  timestamp: string;
 }
 
 @Injectable({
@@ -76,6 +82,19 @@ export class ApiService {
     };
 
     return this.http.post<ApiResponse>(this.apiUrl, requestBody, { headers });
+  }
+
+  /**
+   * Get initial suggestions when chat opens
+   */
+  getSuggestions(): Observable<SuggestionsResponse> {
+    // Use GET /suggestions endpoint
+    const suggestionsUrl = this.apiUrl.replace('/hello', '/suggestions');
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+
+    return this.http.get<SuggestionsResponse>(suggestionsUrl, { headers });
   }
 }
 

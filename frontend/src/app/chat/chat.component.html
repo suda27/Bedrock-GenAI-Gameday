@@ -31,6 +31,29 @@
     <button (click)="toggleApiConfig()" class="btn-secondary">Close</button>
   </div>
 
+  <!-- Suggestions Pills (Initial or After Response) -->
+  <div class="suggestions-container" *ngIf="suggestions.length > 0 && !isLoading">
+    <div class="suggestions-header" (click)="toggleSuggestions()">
+      <span class="suggestions-label">
+        <span *ngIf="!suggestionsCollapsed">▼</span>
+        <span *ngIf="suggestionsCollapsed">▶</span>
+        <span *ngIf="messages.length > 1">💡 Suggested questions</span>
+        <span *ngIf="messages.length <= 1">💡 Get started</span>
+      </span>
+    </div>
+    <div class="suggestions-pills" *ngIf="!suggestionsCollapsed">
+      <button
+        *ngFor="let suggestion of suggestions"
+        class="suggestion-pill"
+        (click)="selectSuggestion(suggestion)"
+        [disabled]="isLoading"
+        title="Click to ask this question"
+      >
+        {{ suggestion }}
+      </button>
+    </div>
+  </div>
+
   <!-- Messages Container -->
   <div class="messages-container" #chatContainer>
     <div 
