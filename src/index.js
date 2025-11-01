@@ -5,6 +5,7 @@
  */
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 const { DynamoDBClient, GetItemCommand, PutItemCommand } = require('@aws-sdk/client-dynamodb');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 
 const region = process.env.APP_REGION || 'ap-south-1';
@@ -12,6 +13,7 @@ const region = process.env.APP_REGION || 'ap-south-1';
 // Initialize clients outside handler for connection reuse (cost optimization)
 const bedrockClient = new BedrockRuntimeClient({ region });
 const dynamoDBClient = new DynamoDBClient({ region });
+const s3Client = new S3Client({ region });
 
 // Bedrock API Key resolved from SSM Parameter Store via CloudFormation dynamic reference
 const BEDROCK_API_KEY = process.env.BEDROCK_API_KEY;
@@ -21,9 +23,16 @@ const MAX_INPUT_LENGTH = parseInt(process.env.MAX_INPUT_LENGTH || '1000', 10);
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || '256', 10);
 const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
 const DYNAMODB_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'travelbuddy-query-cache';
+const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'gameday-bedrock';
+const S3_DOCUMENT_KEY = process.env.S3_DOCUMENT_KEY || 'travel_details.md';
 
 // Cache TTL: 24 hours (86400 seconds)
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
+
+// In-memory cache for S3 travel document (reused across Lambda invocations)
+let cachedTravelDoc = null;
+let travelDocCacheTimestamp = null;
+const TRAVEL_DOC_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache TTL
 
 // Common stop words to remove during normalization for better cache hits
 const STOP_WORDS = new Set([
@@ -135,18 +144,71 @@ async function cacheResponse(queryHash, queryText, response, usage) {
 }
 
 /**
- * Invoke Bedrock LLM to generate response
+ * Get travel document from S3 with in-memory caching
+ * Cache is reused across Lambda invocations (container reuse)
+ */
+async function getTravelDocument() {
+    // Check if cache is valid (exists and not expired)
+    if (cachedTravelDoc && travelDocCacheTimestamp && 
+        (Date.now() - travelDocCacheTimestamp) < TRAVEL_DOC_CACHE_TTL_MS) {
+        console.log('Using cached travel document (cache age:', Math.floor((Date.now() - travelDocCacheTimestamp) / 1000), 'seconds)');
+        return cachedTravelDoc;
+    }
+    
+    try {
+        console.log('Fetching travel document from S3...');
+        const command = new GetObjectCommand({
+            Bucket: S3_BUCKET_NAME,
+            Key: S3_DOCUMENT_KEY
+        });
+        
+        const response = await s3Client.send(command);
+        
+        // Convert stream to string
+        const chunks = [];
+        for await (const chunk of response.Body) {
+            chunks.push(chunk);
+        }
+        const content = Buffer.concat(chunks).toString('utf-8');
+        
+        // Cache it
+        cachedTravelDoc = content;
+        travelDocCacheTimestamp = Date.now();
+        
+        console.log('Travel document cached (size:', content.length, 'characters)');
+        return cachedTravelDoc;
+    } catch (error) {
+        console.error('Error fetching travel document from S3:', error);
+        // Return empty string if S3 read fails (graceful degradation)
+        // Could also return cached version if available, even if expired
+        if (cachedTravelDoc) {
+            console.log('Using expired cache due to S3 error');
+            return cachedTravelDoc;
+        }
+        return '';
+    }
+}
+
+/**
+ * Invoke Bedrock LLM to generate response with travel document context
  */
 async function invokeBedrockLLM(input) {
-    // Prepare simple user message
-    const messages = [
-        {
-            role: 'user',
-            content: `You are a helpful travel assistant for TravelBuddy. Respond to the following in a brief, friendly manner: ${input}`
-        }
-    ];
+    // Get travel document (cached or from S3)
+    const travelDoc = await getTravelDocument();
+    
+    // Build prompt with travel document context
+    let systemPrompt = 'You are a helpful travel assistant for TravelBuddy.';
+    let userContent = input;
+    
+    if (travelDoc) {
+        systemPrompt += ' Use the following travel package information to answer the user\'s question accurately. If the information doesn\'t contain the answer, say so politely.';
+        userContent = `Travel Package Information:\n\n${travelDoc}\n\nUser Question: ${input}`;
+    } else {
+        userContent = `Respond to the following in a brief, friendly manner: ${input}`;
+    }
     
     // Prepare Bedrock request with cost controls
+    // Claude 3 Messages API uses 'system' as top-level parameter, not in messages array
     const bedrockRequest = {
         modelId: MODEL_ID,
         contentType: 'application/json',
@@ -154,7 +216,13 @@ async function invokeBedrockLLM(input) {
         body: JSON.stringify({
             anthropic_version: 'bedrock-2023-05-31',
             max_tokens: MAX_TOKENS,
-            messages: messages
+            system: systemPrompt,
+            messages: [
+                {
+                    role: 'user',
+                    content: userContent
+                }
+            ]
         })
     };
     

@@ -37,6 +37,8 @@ Resources:
           # Note: Use 'ssm-secure' for SecureString, 'ssm' for String type
           BEDROCK_API_KEY: !Sub "{{resolve:ssm:/poc/bedrock-api-key}}"
           DYNAMODB_TABLE_NAME: !Ref QueryCacheTable
+          S3_BUCKET_NAME: "gameday-bedrock"
+          S3_DOCUMENT_KEY: "travel_details.md"
       Events:
         HelloWorldApi:
           Type: Api
