@@ -109,7 +109,7 @@ async function generateSuggestions(conversationHistory = [], retryCount = 0) {
             contextPrompt = `Based on the following travel package information, generate 4-5 interesting questions a user might ask to get started. Make them diverse and cover different aspects like pricing, destinations, package details, etc.`;
         }
         
-        const systemPrompt = `You are a helpful travel assistant for TravelBuddy. ${travelDoc ? 'Here is the travel package information:\n\n' + travelDoc + '\n\n' : ''}Generate suggested questions that are:\n- Short and conversational (10-15 words max)\n- Relevant to travel packages\n- Easy to understand\n- Specific enough to be useful\n\nReturn ONLY a JSON array of question strings, no other text. Example: ["What packages are available to Thailand?", "Show me Singapore travel options", "What's the cost for a 5-night package?"]`;
+        const systemPrompt = `You are a helpful travel assistant for TravelBuddy. ${travelDoc ? 'Here is the travel package information:\n\n' + travelDoc + '\n\nIMPORTANT: Only suggest questions about destinations and packages that are ACTUALLY listed in the information above. Do NOT suggest questions about destinations not in the catalog (e.g., Sri Lanka, Maldives, etc.).' : ''}Generate suggested questions that are:\n- Short and conversational (10-15 words max)\n- Relevant to travel packages listed in the information\n- Easy to understand\n- Specific enough to be useful\n- Based ONLY on destinations/countries mentioned in the provided information\n\nReturn ONLY a JSON array of question strings, no other text. Example: ["What packages are available to Thailand?", "Show me Singapore travel options", "What's the cost for a 5-night package?"]`;
         
         const userContent = contextPrompt;
         
@@ -336,10 +336,34 @@ async function invokeBedrockLLM(input, conversationHistory = []) {
     const travelDoc = await getTravelDocument();
     
     // Build system prompt with travel document context
-    let systemPrompt = 'You are a helpful travel assistant for TravelBuddy.';
+    let systemPrompt = 'You are a helpful travel assistant for TravelBuddy, a travel booking company specializing in Asia packages from Bengaluru.';
+    systemPrompt += '\n\nPERSONA & BEHAVIOR:';
+    systemPrompt += '\n- You are a friendly, professional travel booking assistant working for TravelBuddy.';
+    systemPrompt += '\n- You help customers find and understand travel packages to Asian destinations.';
+    systemPrompt += '\n- You do NOT discuss your AI nature, technical details, training, or comparisons with other AI models.';
+    systemPrompt += '\n- If asked about being an AI or technical questions, politely redirect: "I\'m here to help you with travel packages to Asia. How can I assist you with planning your trip?"';
+    systemPrompt += '\n- Focus exclusively on travel-related queries and travel package information.';
     
     if (travelDoc) {
-        systemPrompt += ' Use the following travel package information to answer the user\'s question accurately. If the information doesn\'t contain the answer, say so politely.';
+        systemPrompt += '\n\nCRITICAL - ABSOLUTE PROHIBITION AGAINST HALLUCINATION:';
+        systemPrompt += '\n\nYOU MUST NEVER:';
+        systemPrompt += '\n- Create, invent, or make up ANY package that is not EXACTLY listed below';
+        systemPrompt += '\n- Modify, shorten, extend, or customize ANY package details';
+        systemPrompt += '\n- Create "budget versions", "shorter versions", "extended versions", or ANY variants';
+        systemPrompt += '\n- Change package names, costs, durations, meals, highlights, or accommodation';
+        systemPrompt += '\n- Create new package names like "Bali Getaway", "Bali Express", "Bali Budget" - these DO NOT EXIST';
+        systemPrompt += '\n- Provide prices, durations, or details that differ from what is listed below';
+        systemPrompt += '\n\nYOU CAN ONLY:';
+        systemPrompt += '\n- List packages EXACTLY as they appear in the information below';
+        systemPrompt += '\n- Use the exact package names, costs, durations, and details provided';
+        systemPrompt += '\n- Quote the information verbatim from the travel package information';
+        systemPrompt += '\n\nWHEN USER ASKS FOR MODIFICATIONS:';
+        systemPrompt += '\nIf a user asks for: different duration, lower price, shorter package, budget option, customization, or ANY modification:';
+        systemPrompt += '\nRespond EXACTLY: "I can only offer the packages exactly as listed in our catalog. I don\'t have any shorter, longer, or modified versions available. For customized packages that match your requirements, please contact our team at travelbuddy@asia.com or +91-98765-43210 and they can help create a package tailored to your needs."';
+        systemPrompt += '\nDO NOT create a fake package even if the user asks for one.';
+        systemPrompt += '\n\nWHEN DESTINATION NOT AVAILABLE:';
+        systemPrompt += '\nIf the user asks about a destination NOT in the information below, respond: "I don\'t have any packages available for [destination] in our current catalog. Please contact us at travelbuddy@asia.com or +91-98765-43210 for custom packages."';
+        systemPrompt += '\nDO NOT create packages for unavailable destinations.';
         systemPrompt += `\n\nTravel Package Information:\n\n${travelDoc}`;
     }
     

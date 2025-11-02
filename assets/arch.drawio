@@ -1,0 +1,136 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.7 Chrome/138.0.7204.251 Electron/37.7.1 Safari/537.36" version="28.2.7" pages="2">
+  <diagram name="TravelBuddy Architecture" id="hTYzDtPXf7pORmC7CtXH">
+    <mxGraphModel dx="1426" dy="841" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-1" value="TravelBuddy AI Travel Assistant - AWS Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="20" width="530" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-2" value="User / Frontend&#xa;(Web/Mobile)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="30" y="120" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-3" value="API Gateway&#xa;REST API&#xa;POST /hello" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="120" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-4" value="AWS Lambda&lt;br&gt;Node.js 20.x&lt;br&gt;256 MB, 30s timeout&lt;br&gt;&lt;br&gt;Handler Logic:&lt;br&gt;• Query Normalization&lt;br&gt;• Cache Check&lt;br&gt;• S3 Read&lt;br&gt;• Bedrock Invocation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="580" y="80" width="200" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-5" value="DynamoDB&#xa;Query Cache Table&#xa;travelbuddy-query-cache&#xa;&#xa;PAY_PER_REQUEST&#xa;TTL: 24 hours" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="230" y="320" width="140" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-6" value="Amazon S3&#xa;gameday-bedrock&#xa;&#xa;travel_details.md&#xa;Travel Packages Data" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="640" y="420" width="160" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-7" value="Amazon Bedrock&#xa;Claude 3 Haiku&#xa;LLM Service&#xa;&#xa;Cost Optimized:&#xa;Max 256 tokens output" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="990" y="310" width="180" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-8" value="SSM Parameter Store&#xa;/poc/bedrock-api-key&#xa;&#xa;API Key Storage" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="1010" y="140" width="180" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-9" value="CloudWatch&#xa;Logs &amp; Metrics&#xa;&#xa;Monitoring &amp; Debugging" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="140" y="550" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-10" value="HTTP POST&#xa;{&quot;input&quot;: &quot;...&quot;}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#006EAF" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-2" target="J9jTgYEggFK-ShdUiF6n-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-11" value="Invoke" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#006EAF" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-3" target="J9jTgYEggFK-ShdUiF6n-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-12" value="1. Check Cache&#xa;GetItem(queryHash)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#9673a6;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-4" target="J9jTgYEggFK-ShdUiF6n-5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="240" />
+              <mxPoint x="390" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-13" value="Cache HIT?&#xa;Return or Continue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#9673a6;dashed=1;dashPattern=8 8" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-5" target="J9jTgYEggFK-ShdUiF6n-4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="240" />
+              <mxPoint x="680" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-14" value="2. Read Travel Doc&#xa;GetObject()&#xa;(cached in memory)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#82b366;entryX=0.25;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-4" target="J9jTgYEggFK-ShdUiF6n-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-15" value="Document Content" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#82b366;dashed=1;dashPattern=8 8" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-6" target="J9jTgYEggFK-ShdUiF6n-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-16" value="Get API Key&#xa;(via env var&#xa;from deployment)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#666666;dashed=1;dashPattern=8 8;entryX=0;entryY=0.5;entryDx=0;entryDy=0" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-4" target="J9jTgYEggFK-ShdUiF6n-8">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-17" value="3. Invoke LLM&#xa;Claude 3 Haiku&#xa;with context" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#d79b00;entryX=0;entryY=0.5;entryDx=0;entryDy=0" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-4" target="J9jTgYEggFK-ShdUiF6n-7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="160" />
+              <mxPoint x="780" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-18" value="LLM Response" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#d79b00;dashed=1;dashPattern=8 8" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-7" target="J9jTgYEggFK-ShdUiF6n-4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-19" value="4. Store in Cache&#xa;PutItem(response)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=2;strokeColor=#9673a6;entryX=0.75;entryY=1;entryDx=0;entryDy=0" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-4" target="J9jTgYEggFK-ShdUiF6n-5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="280" />
+              <mxPoint x="460" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-20" value="Logs &amp; Metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#82b366;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-4" target="J9jTgYEggFK-ShdUiF6n-9">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="280" />
+              <mxPoint x="540" y="280" />
+              <mxPoint x="540" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-21" value="Response" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#006EAF;dashed=1;dashPattern=8 8" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-4" target="J9jTgYEggFK-ShdUiF6n-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;endArrow=block;endFill=0;strokeWidth=1;strokeColor=#006EAF;dashed=1;dashPattern=8 8" edge="1" parent="1" source="J9jTgYEggFK-ShdUiF6n-3" target="J9jTgYEggFK-ShdUiF6n-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-23" value="Execution Flow:&#xa;1. Normalize Query → Check DynamoDB Cache&#xa;2. If MISS: Read S3 Document (cached)&#xa;3. Invoke Bedrock with document context&#xa;4. Store response in DynamoDB cache&#xa;5. Return to user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;verticalAlign=top;spacingLeft=10" vertex="1" parent="1">
+          <mxGeometry x="115" y="680" width="940" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="J9jTgYEggFK-ShdUiF6n-24" value="Cost Optimization Features:&#xa;• Query normalization for better cache hits&#xa;• DynamoDB caching reduces Bedrock calls by 30-70%&#xa;• S3 in-memory caching (1 hour TTL)&#xa;• Claude 3 Haiku (cheapest model)&#xa;• Token limits: 256 output, 1000 char input" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=top;spacingLeft=10" vertex="1" parent="1">
+          <mxGeometry x="20" y="290" width="200" height="120" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="saSEpkpfpt8Ko51WS7jG" name="Page-2">
+    <mxGraphModel dx="1426" dy="841" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="uyV82MSvH1Np6fltaq4o-1" value="" style="html=1;verticalLabelPosition=bottom;align=center;labelBackgroundColor=#ffffff;verticalAlign=top;strokeWidth=2;strokeColor=#0080F0;shadow=0;dashed=0;shape=mxgraph.ios7.icons.user;" vertex="1" parent="1">
+          <mxGeometry x="70" y="160" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="U1_8kLRQn2iN4kR0dySn-1" value="TravelBuddy AI Travel Assistant - AWS Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="120" y="30" width="530" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="1x4lPqFmg0mAvlraviUp-1" value="" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.api_gateway;fillColor=#D9A741;gradientColor=none;" vertex="1" parent="1">
+          <mxGeometry x="190" y="155" width="49.35" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="mtbY6s2znYmg8jSiHs3b-1" value="" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.lambda_function;fillColor=#F58534;gradientColor=none;" vertex="1" parent="1">
+          <mxGeometry x="310" y="160" width="52.71" height="55" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
