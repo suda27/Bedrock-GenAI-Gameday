@@ -83,10 +83,52 @@ function generateQueryHash(query) {
 }
 
 /**
- * Check if a query is a generic/fallback suggestion that requires context
- * These queries are too generic and should always go to LLM with conversation history
+ * Check if a query is a generic/fallback suggestion or short context-dependent response
+ * These queries are too generic/short and should always go to LLM with conversation history
+ * They should NOT be cached because they mean different things in different conversations
  */
 function isGenericFallbackQuery(query) {
+    if (!query || typeof query !== 'string') {
+        return false;
+    }
+    
+    const trimmedQuery = query.trim();
+    const normalized = normalizeQuery(query);
+    const normalizedLower = normalized.toLowerCase().trim();
+    
+    // Short context-dependent responses (1-2 words) - these need conversation context
+    const shortContextResponses = [
+        'yes',
+        'no',
+        'ok',
+        'okay',
+        'sure',
+        'maybe',
+        'probably',
+        'possibly',
+        'correct',
+        'right',
+        'exactly',
+        'absolutely',
+        'definitely',
+        'certainly',
+        'indeed',
+        'true',
+        'false',
+        'yep',
+        'nope',
+        'nah',
+        'yeah',
+        'yup'
+    ];
+    
+    // Very short queries (1-2 words after normalization) are likely context-dependent
+    const wordCount = normalizedLower.split(' ').filter(w => w.length > 0).length;
+    if (wordCount <= 2 && shortContextResponses.includes(normalizedLower)) {
+        return true;
+    }
+    
+    // Generic fallback queries
     const genericQueries = [
         'tell me more',
         'what else can you help with',
@@ -97,11 +139,14 @@ function isGenericFallbackQuery(query) {
         'what are the other options',
         'more information',
         'any other',
-        'other options'
+        'other options',
+        'go on',
+        'continue',
+        'more',
+        'anything else'
     ];
     
-    const normalized = normalizeQuery(query);
-    return genericQueries.includes(normalized.toLowerCase().trim());
+    return genericQueries.includes(normalizedLower);
 }
 
 /**
