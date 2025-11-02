@@ -83,12 +83,67 @@ function generateQueryHash(query) {
 }
 
 /**
+ * Check if a query is a generic/fallback suggestion that requires context
+ * These queries are too generic and should always go to LLM with conversation history
+ */
+function isGenericFallbackQuery(query) {
+    const genericQueries = [
+        'tell me more',
+        'what else can you help with',
+        'what else',
+        'show me more',
+        'tell me more about this',
+        'what else can you help',
+        'what are the other options',
+        'more information',
+        'any other',
+        'other options'
+    ];
+    
+    const normalized = normalizeQuery(query);
+    return genericQueries.includes(normalized.toLowerCase().trim());
+}
+
+/**
  * Generate suggested questions based on travel document and conversation context
+ * Includes caching to reduce Bedrock calls and handle scale
  * Includes retry logic with exponential backoff for throttling errors
  */
 async function generateSuggestions(conversationHistory = [], retryCount = 0) {
     const maxRetries = 2;
     const baseDelay = 1000; // 1 second base delay
+    
+    // Create cache key for suggestions
+    // For initial suggestions (no history): use static key "initial_suggestions"
+    // For follow-up: hash the last exchange (last user + assistant messages)
+    let suggestionsCacheKey;
+    if (conversationHistory.length === 0) {
+        suggestionsCacheKey = 'initial_suggestions';
+    } else {
+        const lastExchange = conversationHistory.slice(-2);
+        const exchangeText = lastExchange.map(msg => `${msg.role}:${msg.content}`).join('|');
+        suggestionsCacheKey = 'suggestions_' + crypto.createHash('sha256').update(exchangeText).digest('hex').substring(0, 16);
+    }
+    
+    // Check cache first (24 hour TTL)
+    try {
+        const cacheCheck = await dynamoDBClient.send(new GetItemCommand({
+            TableName: DYNAMODB_TABLE_NAME,
+            Key: { queryHash: { S: suggestionsCacheKey } }
+        }));
+        
+        if (cacheCheck.Item && cacheCheck.Item.response) {
+            const cachedSuggestions = JSON.parse(cacheCheck.Item.response.S);
+            const ttl = parseInt(cacheCheck.Item.ttl?.N || '0');
+            if (Date.now() / 1000 < ttl) {
+                console.log('Using cached suggestions for key:', suggestionsCacheKey);
+                return cachedSuggestions;
+            }
+        }
+    } catch (cacheError) {
+        console.warn('Error checking suggestions cache:', cacheError);
+        // Continue to generate new suggestions if cache check fails
+    }
     
     try {
         // Get travel document
@@ -201,7 +256,34 @@ async function generateSuggestions(conversationHistory = [], retryCount = 0) {
         }
         
         // Limit to 4-5 suggestions
-        return suggestions.slice(0, 5);
+        const finalSuggestions = suggestions.slice(0, 5);
+        
+        // Cache the suggestions for 24 hours
+        try {
+            const ttl = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // 24 hours
+            await dynamoDBClient.send(new PutItemCommand({
+                TableName: DYNAMODB_TABLE_NAME,
+                Item: {
+                    queryHash: { S: suggestionsCacheKey },
+                    response: { S: JSON.stringify(finalSuggestions) },
+                    queryText: { S: conversationHistory.length === 0 ? 'initial_suggestions' : 'follow_up_suggestions' },
+                    ttl: { N: ttl.toString() },
+                    usage: { 
+                        M: {
+                            inputTokens: { N: '0' },
+                            outputTokens: { N: '0' },
+                            model: { S: 'suggestions_cache' }
+                        }
+                    }
+                }
+            }));
+            console.log('Cached suggestions for key:', suggestionsCacheKey);
+        } catch (cacheError) {
+            console.warn('Error caching suggestions:', cacheError);
+            // Continue even if caching fails
+        }
+        
+        return finalSuggestions;
     } catch (error) {
         // Handle throttling with retry logic
         if (error.name === 'ThrottlingException' && retryCount < maxRetries) {
@@ -214,7 +296,7 @@ async function generateSuggestions(conversationHistory = [], retryCount = 0) {
         // For other errors or max retries reached, return default suggestions
         console.error('Error generating suggestions:', error.name || error.message);
         
-        // Return default suggestions based on context
+        // Return default suggestions based on context (don't cache defaults)
         return conversationHistory.length > 0
             ? ['Tell me more', 'What else can you help with?', 'Show me other packages']
             : ['What packages are available?', 'Show me travel options', 'Tell me about pricing'];
@@ -611,15 +693,25 @@ exports.handler = async (event) => {
             };
         }
         
-        // Step 1: Generate hash of normalized query for cache lookup
+        // Step 1: Check if this is a generic fallback query that needs context
+        // These queries are too generic and should always hit LLM with conversation history
+        const isGenericQuery = isGenericFallbackQuery(input);
+        
+        // Step 2: Generate hash of normalized query for cache lookup
         const normalizedQuery = normalizeQuery(input);
         const queryHash = generateQueryHash(input);
         console.log('Original query:', input);
         console.log('Normalized query:', normalizedQuery);
         console.log('Query hash:', queryHash);
+        console.log('Is generic query (will skip cache):', isGenericQuery);
         
-        // Step 2: Check DynamoDB cache
-        const cacheResult = await getCachedResponse(queryHash);
+        // Step 3: Check DynamoDB cache (skip for generic queries that need context)
+        let cacheResult = { cached: false };
+        if (!isGenericQuery) {
+            cacheResult = await getCachedResponse(queryHash);
+        } else {
+            console.log('Generic fallback query detected - skipping cache, going directly to LLM:', input);
+        }
         
         if (cacheResult.cached) {
             // Cache HIT - return cached response (no Bedrock call = cost savings!)
@@ -669,10 +761,12 @@ exports.handler = async (event) => {
             };
         }
         
-        // Step 3: Cache MISS - Invoke Bedrock LLM with conversation history
+        // Step 4: Cache MISS (or generic query) - Invoke Bedrock LLM with conversation history
         console.log('Cache miss - calling Bedrock LLM', { 
             hasHistory: conversationHistory.length > 0,
-            historyLength: conversationHistory.length 
+            historyLength: conversationHistory.length,
+            isGenericQuery: isGenericQuery,
+            skippedCache: isGenericQuery
         });
         const bedrockResult = await invokeBedrockLLM(input, conversationHistory);
 
@@ -683,19 +777,24 @@ exports.handler = async (event) => {
             totalTokens: (bedrockResult.usage.input_tokens || 0) + (bedrockResult.usage.output_tokens || 0)
         });
 
-        // Step 4: Store response in cache for future requests
-        await cacheResponse(
-            queryHash,
-            input,
-            bedrockResult.output,
-            {
-                inputTokens: bedrockResult.usage.input_tokens || 0,
-                outputTokens: bedrockResult.usage.output_tokens || 0,
-                model: MODEL_ID
-            }
-        );
+        // Step 5: Store response in cache for future requests (skip caching for generic queries)
+        // Generic queries are context-dependent, so caching them would return irrelevant responses
+        if (!isGenericQuery) {
+            await cacheResponse(
+                queryHash,
+                input,
+                bedrockResult.output,
+                {
+                    inputTokens: bedrockResult.usage.input_tokens || 0,
+                    outputTokens: bedrockResult.usage.output_tokens || 0,
+                    model: MODEL_ID
+                }
+            );
+        } else {
+            console.log('Skipping cache storage for generic query:', input);
+        }
 
-        // Step 5: Generate follow-up suggestions based on conversation context
+        // Step 6: Generate follow-up suggestions based on conversation context
         // Use fire-and-forget to avoid blocking the response if suggestions fail
         let suggestions = [];
         const updatedHistory = conversationHistory.concat([
@@ -714,7 +813,7 @@ exports.handler = async (event) => {
             suggestions = ['Tell me more', 'What else can you help with?'];
         }
 
-        // Step 6: Return response with suggestions
+        // Step 7: Return response with suggestions
         return {
             statusCode: 200,
             headers: {
